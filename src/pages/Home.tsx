@@ -22,12 +22,21 @@ type CustomDevice = {
 const Home: React.FC = () => {
   const [devices, setDevices] = useState<CustomDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [characteristics, setCharacteristics] = useState<any[]>([]); // Store discovered characteristics
+  const [characteristics, setCharacteristics] = useState<any[]>([]);
+
+  // Initialize Bluetooth LE
+  const initializeBluetooth = async () => {
+    try {
+      await BluetoothLe.initialize();
+    } catch (error) {
+      alert("Bluetooth initialization failed: " + error.message);
+    }
+  };
 
   // Function to scan for nearby Bluetooth printers
   const scanForPrinters = async () => {
     setDevices([]); // Clear any previously listed devices
-    await BluetoothLe.initialize();
+    await initializeBluetooth(); // Initialize Bluetooth
 
     const listener = await BluetoothLe.addListener(
       'onScanResult',
@@ -65,7 +74,6 @@ const Home: React.FC = () => {
     setSelectedDeviceId(deviceId);
 
     try {
-      // Connect to the selected Bluetooth device
       await BluetoothLe.connect({ deviceId });
 
       // Example service and characteristic UUIDs for reading data
@@ -78,12 +86,8 @@ const Home: React.FC = () => {
         service: serviceUuid,
         characteristic: characteristicUuid,
       });
-
-      console.log('Read result:', readResult);
       setCharacteristics([readResult]); // Set read characteristics
-
     } catch (error: any) {
-      console.error('Connection or reading failed:', error);
       alert('Failed to connect or read characteristic: ' + error.message);
     }
   };
@@ -116,7 +120,6 @@ const Home: React.FC = () => {
       });
       alert('Printed successfully!');
     } catch (error: any) {
-      console.error('Print failed:', error);
       alert('Print failed: ' + (error.message || 'Unknown error'));
     }
   };
