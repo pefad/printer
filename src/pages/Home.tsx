@@ -22,46 +22,81 @@ type CustomDevice = {
 const Home: React.FC = () => {
   const [devices, setDevices] = useState<CustomDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [services, setServices] = useState<any[]>([]); // Store discovered services
   const [characteristics, setCharacteristics] = useState<any[]>([]); // Store discovered characteristics
 
-  // Function to connect to the Bluetooth device using its Bluetooth address (MAC address)
-  const connectToDeviceByAddress = async (bluetoothAddress: string) => {
-    setSelectedDeviceId(bluetoothAddress);
+  // Function to scan for nearby Bluetooth printers
+  const scanForPrinters = async () => {
+    setDevices([]); // Clear any previously listed devices
+    await BluetoothLe.initialize();
+
+    const listener = await BluetoothLe.addListener(
+      'onScanResult',
+      (result: any) => {
+        const device = result?.device;
+        if (device?.deviceId) {
+          const foundDevice: CustomDevice = {
+            deviceId: device.deviceId,
+            name: device.name,
+          };
+
+          setDevices((prev) => {
+            const exists = prev.find((d) => d.deviceId === foundDevice.deviceId);
+            if (!exists) {
+              return [...prev, foundDevice];
+            }
+            return prev;
+          });
+        }
+      }
+    );
+
+    // Start scanning for Bluetooth devices
+    await BluetoothLe.requestLEScan({ allowDuplicates: false });
+
+    // Stop the scan after 10 seconds
+    setTimeout(async () => {
+      await BluetoothLe.stopLEScan();
+      await listener.remove();
+    }, 10000);
+  };
+
+  // Function to connect to the selected device and read characteristics
+  const connectAndDiscover = async (deviceId: string) => {
+    setSelectedDeviceId(deviceId);
 
     try {
-      // Connect to the Bluetooth device using its address
-      await BluetoothLe.connect({ deviceId: bluetoothAddress });
+      // Connect to the selected Bluetooth device
+      await BluetoothLe.connect({ deviceId });
 
-      // Discover services (this step can be skipped if you already know the service UUIDs)
-      const discoveredServices = await BluetoothLe.discover({ deviceId: bluetoothAddress });
-      setServices(discoveredServices);
+      // Example service and characteristic UUIDs for reading data
+      const serviceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with correct UUID
+      const characteristicUuid = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'; // Replace with correct UUID
 
-      // Discover characteristics for the first service (you can select the right one)
-      const serviceUuid = discoveredServices[0]?.uuid; // Use the first service for demonstration
-      const discoveredCharacteristics = await BluetoothLe.discoverCharacteristics({
-        deviceId: bluetoothAddress,
+      // Read the characteristic value
+      const readResult = await BluetoothLe.read({
+        deviceId,
         service: serviceUuid,
+        characteristic: characteristicUuid,
       });
-      setCharacteristics(discoveredCharacteristics);
 
-      console.log('Discovered Services:', discoveredServices);
-      console.log('Discovered Characteristics:', discoveredCharacteristics);
+      console.log('Read result:', readResult);
+      setCharacteristics([readResult]); // Set read characteristics
+
     } catch (error: any) {
-      console.error('Connection or discovery failed:', error);
-      alert('Failed to connect or discover services: ' + error.message);
+      console.error('Connection or reading failed:', error);
+      alert('Failed to connect or read characteristic: ' + error.message);
     }
   };
 
-  // Function to print after discovering characteristics
+  // Function to print after reading characteristics
   const printData = async () => {
     if (!selectedDeviceId || characteristics.length === 0) {
-      alert('Please connect to a device and discover characteristics first.');
+      alert('Please connect to a device and read characteristics first.');
       return;
     }
 
-    const writableServiceUuid = services[0]?.uuid; // Replace with correct writable service
-    const writableCharUuid = characteristics[0]?.uuid; // Replace with correct writable characteristic
+    const writableServiceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with correct writable service
+    const writableCharUuid = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'; // Replace with correct writable characteristic
 
     const html = `<b>Hello Printer</b><br>Printed from Ionic React app!`;
     const plainText = html
@@ -94,8 +129,8 @@ const Home: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent className="ion-padding">
-        <IonButton expand="block" onClick={() => connectToDeviceByAddress('DC:0D:51:FB:E4:30')}>
-          Connect to Bluetooth Device
+        <IonButton expand="block" onClick={scanForPrinters}>
+          Scan for Bluetooth Printers
         </IonButton>
 
         <IonList>
@@ -103,7 +138,7 @@ const Home: React.FC = () => {
             <IonItem
               key={idx}
               button
-              onClick={() => connectToDeviceByAddress(device.deviceId)}
+              onClick={() => connectAndDiscover(device.deviceId)}
             >
               <IonLabel>
                 {device.name || 'Unnamed Device'}<br />
