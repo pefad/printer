@@ -75,6 +75,7 @@ const Home: React.FC = () => {
 
     try {
       await BluetoothLe.connect({ deviceId });
+      alert('Connected to device: ' + deviceId);
 
       // Example service and characteristic UUIDs for reading data
       const serviceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with correct UUID
@@ -86,6 +87,8 @@ const Home: React.FC = () => {
         service: serviceUuid,
         characteristic: characteristicUuid,
       });
+
+      alert('Read result: ' + JSON.stringify(readResult));
       setCharacteristics([readResult]); // Set read characteristics
     } catch (error: any) {
       alert('Failed to connect or read characteristic: ' + error.message);
