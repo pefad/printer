@@ -22,7 +22,6 @@ const Home: React.FC = () => {
   const [devices, setDevices] = useState<CustomDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [characteristics, setCharacteristics] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
 
   // Initialize Bluetooth LE
   const initializeBluetooth = async () => {
@@ -69,32 +68,27 @@ const Home: React.FC = () => {
     }, 10000);
   };
 
-  // Function to connect to the selected device and discover services and characteristics
+  // Function to connect to the selected device and discover characteristics
   const connectAndDiscover = async (deviceId: string) => {
     setSelectedDeviceId(deviceId);
     try {
       await BluetoothLe.connect({ deviceId });
       alert('Connected to device: ' + deviceId);
 
-      // Discover the services of the connected device
-      const servicesResult = await BluetoothLe.discoverServices({
+      // Discover characteristics of the connected device
+      const characteristicsResult = await BluetoothLe.discoverCharacteristics({
         deviceId,
       });
 
-      // This will log what is returned from the `discoverServices` method.
-      alert('Discovered services result: ' + JSON.stringify(servicesResult));
+      // Log characteristics result
+      alert('Discovered characteristics result: ' + JSON.stringify(characteristicsResult));
 
-      // If services were discovered correctly, update state.
-      if (servicesResult) {
-        const services = servicesResult.services || [];
-        setServices(services);
-
-        // If needed, extract the characteristics of each service
-        const allCharacteristics = services.flatMap((service: any) => service.characteristics);
-        setCharacteristics(allCharacteristics);
+      // Check if characteristics are available and set them
+      if (characteristicsResult && characteristicsResult.characteristics) {
+        setCharacteristics(characteristicsResult.characteristics);
       }
     } catch (error: any) {
-      alert('Failed to connect or discover services: ' + error.message);
+      alert('Failed to connect or discover characteristics: ' + error.message);
     }
   };
 
@@ -105,7 +99,7 @@ const Home: React.FC = () => {
       return;
     }
 
-    // Assuming the writable service and characteristic UUIDs are part of the discovered characteristics
+    // Assuming the writable characteristic UUID is part of the discovered characteristics
     const writableCharacteristic = characteristics.find((char) => char.properties.write);
     if (!writableCharacteristic) {
       alert('No writable characteristic found.');
