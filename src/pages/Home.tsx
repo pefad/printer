@@ -76,20 +76,23 @@ const Home: React.FC = () => {
       await BluetoothLe.connect({ deviceId });
       alert('Connected to device: ' + deviceId);
 
-      // Discover the services and characteristics of the device
-      const discoveredServices = await BluetoothLe.discoverServices({
+      // Discover the services of the connected device
+      const servicesResult = await BluetoothLe.discoverServices({
         deviceId,
       });
 
-      alert('Discovered services: ' + JSON.stringify(discoveredServices));
+      // This will log what is returned from the `discoverServices` method.
+      alert('Discovered services result: ' + JSON.stringify(servicesResult));
 
-      // Store the discovered services and characteristics
-      setServices(discoveredServices.services);
+      // If services were discovered correctly, update state.
+      if (servicesResult) {
+        const services = servicesResult.services || [];
+        setServices(services);
 
-      // Extract characteristics from the discovered services
-      const allCharacteristics = discoveredServices.services.flatMap((service: any) => service.characteristics);
-      setCharacteristics(allCharacteristics);
-
+        // If needed, extract the characteristics of each service
+        const allCharacteristics = services.flatMap((service: any) => service.characteristics);
+        setCharacteristics(allCharacteristics);
+      }
     } catch (error: any) {
       alert('Failed to connect or discover services: ' + error.message);
     }
