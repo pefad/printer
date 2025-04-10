@@ -77,7 +77,7 @@ const Home: React.FC = () => {
       alert('Connected to device: ' + deviceId);
 
       // Discover the services and characteristics of the device
-      const discoveredServices = await BluetoothLe.discover({
+      const discoveredServices = await BluetoothLe.discoverServices({
         deviceId,
       });
 
