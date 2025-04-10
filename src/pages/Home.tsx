@@ -78,8 +78,8 @@ const Home: React.FC = () => {
       // Example: You would replace 'serviceUuid' and 'characteristicUuid' with actual values for your printer.
       const readResult = await BluetoothLe.read({
         deviceId,
-        service: 'your-service-uuid-here',
-        characteristic: 'your-characteristic-uuid-here',
+        service: '000018f0-0000-1000-8000-00805f9b34fb',
+        characteristic: '00002af0-0000-1000-8000-00805f9b34fb',
       });
 
       console.log('Read result:', readResult);
