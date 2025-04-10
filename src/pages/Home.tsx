@@ -78,8 +78,8 @@ const Home: React.FC = () => {
       alert('Connected to device: ' + deviceId);
 
       // Example service and characteristic UUIDs for reading data
-      const serviceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with correct UUID
-      const characteristicUuid = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'; // Replace with correct UUID
+      const serviceUuid = '000018f0-0000-1000-8000-00805f9b34fb'; // Replace with correct UUID
+      const characteristicUuid = '00002a00-0000-1000-8000-00805f9b34fb'; // Replace with correct UUID
 
       // Read the characteristic value
       const readResult = await BluetoothLe.read({
@@ -102,8 +102,8 @@ const Home: React.FC = () => {
       return;
     }
 
-    const writableServiceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with correct writable service
-    const writableCharUuid = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'; // Replace with correct writable characteristic
+    const writableServiceUuid = '49535343-fe7d-4ae5-8fa9-9fafd205e455'; // Replace with correct writable service
+    const writableCharUuid = '49535343-8841-43f4-a8d4-ecbe34729bb3'; // Replace with correct writable characteristic
 
     const html = `<b>Hello Printer</b><br>Printed from Ionic React app!`;
     const plainText = html
