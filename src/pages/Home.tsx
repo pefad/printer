@@ -28,7 +28,7 @@ const Home: React.FC = () => {
   const initializeBluetooth = async () => {
     try {
       await BluetoothLe.initialize();
-    } catch (error) {
+    } catch (error: any) {
       alert("Bluetooth initialization failed: " + error.message);
     }
   };
