@@ -22,7 +22,6 @@ type CustomDevice = {
 const Home: React.FC = () => {
   const [devices, setDevices] = useState<CustomDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [services, setServices] = useState<any[]>([]); // Store discovered services
   const [characteristics, setCharacteristics] = useState<any[]>([]); // Store discovered characteristics
 
   // Function to scan for nearby Bluetooth printers
@@ -61,7 +60,7 @@ const Home: React.FC = () => {
     }, 10000);
   };
 
-  // Function to connect to the selected device and discover its services and characteristics
+  // Function to connect to the selected device and read characteristics
   const connectAndDiscover = async (deviceId: string) => {
     setSelectedDeviceId(deviceId);
 
@@ -69,40 +68,35 @@ const Home: React.FC = () => {
       // Connect to the selected Bluetooth device
       await BluetoothLe.connect({ deviceId });
 
-      // Discover services
-      const discoveredServices = await BluetoothLe.discover({ deviceId });
-      setServices(discoveredServices);
+      // Example service and characteristic UUIDs for reading data
+      const serviceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with correct UUID
+      const characteristicUuid = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'; // Replace with correct UUID
 
-      // Discover characteristics for the first service (you may want to choose the right one)
-      const serviceUuid = discoveredServices[0]?.uuid; // Use the first service for demonstration
-      const discoveredCharacteristics = await BluetoothLe.discoverCharacteristics({
+      // Read the characteristic value
+      const readResult = await BluetoothLe.read({
         deviceId,
         service: serviceUuid,
+        characteristic: characteristicUuid,
       });
-      setCharacteristics(discoveredCharacteristics);
 
-      console.log('Discovered Services:', discoveredServices);
-      console.log('Discovered Characteristics:', discoveredCharacteristics);
+      console.log('Read result:', readResult);
+      setCharacteristics([readResult]); // Set read characteristics
+
     } catch (error: any) {
-      console.error('Connection or discovery failed:', error);
-      alert('Failed to connect or discover services: ' + error.message);
+      console.error('Connection or reading failed:', error);
+      alert('Failed to connect or read characteristic: ' + error.message);
     }
   };
 
-  // Function to print after discovering characteristics
+  // Function to print after reading characteristics
   const printData = async () => {
     if (!selectedDeviceId || characteristics.length === 0) {
-      alert('Please connect to a device and discover characteristics first.');
+      alert('Please connect to a device and read characteristics first.');
       return;
     }
 
-    const writableServiceUuid = services[0]?.uuid; // Replace with actual writable service
-    const writableCharUuid = characteristics[0]?.uuid; // Replace with actual writable characteristic
-
-    if (!writableServiceUuid || !writableCharUuid) {
-      alert('Unable to find writable service or characteristic.');
-      return;
-    }
+    const writableServiceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with correct writable service
+    const writableCharUuid = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'; // Replace with correct writable characteristic
 
     const html = `<b>Hello Printer</b><br>Printed from Ionic React app!`;
     const plainText = html
@@ -163,4 +157,3 @@ const Home: React.FC = () => {
 };
 
 export default Home;
-    
