@@ -72,21 +72,21 @@ const Home: React.FC = () => {
 
     try {
       // Connect to the selected Bluetooth device
-      await BluetoothLe.connect({ deviceId });
+      await BluetoothLe.connect({ deviceId,autoConnect: true,});
 
       // Read a characteristic value (e.g., device information or status)
       // Example: You would replace 'serviceUuid' and 'characteristicUuid' with actual values for your printer.
       const readResult = await BluetoothLe.read({
         deviceId,
-        service: '000018f0-0000-1000-8000-00805f9b34fb',
-        characteristic: '00002af0-0000-1000-8000-00805f9b34fb',
+        service: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+        characteristic: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f',
       });
 
       console.log('Read result:', readResult);
 
       // Now, write data to the device (print data)
-      const writableServiceUuid = 'your-service-uuid-here'; // Replace with your service UUID
-      const writableCharUuid = 'your-characteristic-uuid-here'; // Replace with your characteristic UUID
+      const writableServiceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with your service UUID
+      const writableCharUuid = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'; // Replace with your characteristic UUID
 
       // HTML content to print
       const html = `<b>Hello Printer</b><br>Printed from Ionic React app!`;
