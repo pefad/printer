@@ -6,128 +6,115 @@ import {
   IonTitle,
   IonContent,
   IonButton,
-  IonList,
-  IonItem,
-  IonLabel,
+  IonText,
+  IonLoading
 } from '@ionic/react';
-
-import { BluetoothLe } from '@capacitor-community/bluetooth-le';
-
-type CustomDevice = {
-  deviceId: string;
-  name?: string;
-};
+import { BleClient, BleService, textToDataView } from '@capacitor-community/bluetooth-le';
 
 const Home: React.FC = () => {
-  const [devices, setDevices] = useState<CustomDevice[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [characteristics, setCharacteristics] = useState<any[]>([]);
+  const [deviceId, setDeviceId] = useState<string>('');
+  const [serviceUuid, setServiceUuid] = useState<string>('');
+  const [characteristicUuid, setCharacteristicUuid] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // Initialize Bluetooth LE
-  const initializeBluetooth = async () => {
-    try {
-      await BluetoothLe.initialize();
-    } catch (error: any) {
-      alert("Bluetooth initialization failed: " + error.message);
+  const initializeBLE = async () => {
+    await BleClient.initialize({ androidNeverForLocation: true });
+  };
+
+  const verifyAndEnable = async () => {
+    const isEnabled = await BleClient.isEnabled();
+    if (!isEnabled) {
+      await BleClient.enable();
     }
   };
 
-  // Function to scan for nearby Bluetooth printers
-  const scanForPrinters = async () => {
-    setDevices([]); // Clear any previously listed devices
-    await initializeBluetooth(); // Initialize Bluetooth
+  const scanAndConnect = async () => {
+    setLoading(true);
+    try {
+      await verifyAndEnable();
+      await initializeBLE();
 
-    const listener = await BluetoothLe.addListener(
-      'onScanResult',
-      (result: any) => {
-        const device = result?.device;
-        if (device?.deviceId) {
-          const foundDevice: CustomDevice = {
-            deviceId: device.deviceId,
-            name: device.name,
-          };
+      const device = await BleClient.requestDevice({ allowDuplicates: false });
+      if (!device) throw new Error('No device selected');
 
-          setDevices((prev) => {
-            const exists = prev.find((d) => d.deviceId === foundDevice.deviceId);
-            if (!exists) {
-              return [...prev, foundDevice];
-            }
-            return prev;
-          });
-        }
+      await BleClient.connect(device.deviceId);
+      setDeviceId(device.deviceId);
+
+      const services: BleService[] = await BleClient.getServices(device.deviceId);
+      const service = services[0];
+      const characteristic = service?.characteristics[0];
+
+      if (!service || !characteristic) {
+        throw new Error('Service or Characteristic not found');
       }
-    );
 
-    // Start scanning for Bluetooth devices
-    await BluetoothLe.requestLEScan({ allowDuplicates: false });
-
-    // Stop the scan after 10 seconds
-    setTimeout(async () => {
-      await BluetoothLe.stopLEScan();
-      await listener.remove();
-    }, 10000);
-  };
-
-  // Function to connect to the selected device and discover characteristics
-  const connectAndDiscover = async (deviceId: string) => {
-    setSelectedDeviceId(deviceId);
-    try {
-      await BluetoothLe.connect({ deviceId });
-      alert('Connected to device: ' + deviceId);
-
-      // Discover characteristics of the connected device
-      const characteristicsResult = await BluetoothLe.discoverCharacteristics({
-        deviceId,
-      });
-
-      // Log characteristics result
-      alert('Discovered characteristics result: ' + JSON.stringify(characteristicsResult));
-
-      // Check if characteristics are available and set them
-      if (characteristicsResult && characteristicsResult.characteristics) {
-        setCharacteristics(characteristicsResult.characteristics);
-      }
-    } catch (error: any) {
-      alert('Failed to connect or discover characteristics: ' + error.message);
+      setServiceUuid(service.uuid);
+      setCharacteristicUuid(characteristic.uuid);
+    } catch (err) {
+      alert('Error: ' + err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Function to print after reading characteristics
-  const printData = async () => {
-    if (!selectedDeviceId || characteristics.length === 0) {
-      alert('Please connect to a device and read characteristics first.');
-      return;
-    }
+  const write = async (data: Uint8Array | string) => {
+    const buffer = typeof data === 'string' ? textToDataView(data) : new DataView(data.buffer);
+    await BleClient.write(deviceId, serviceUuid, characteristicUuid, buffer);
+  };
 
-    // Assuming the writable characteristic UUID is part of the discovered characteristics
-    const writableCharacteristic = characteristics.find((char) => char.properties.write);
-    if (!writableCharacteristic) {
-      alert('No writable characteristic found.');
-      return;
-    }
+  const lineFeed = async () => write(new Uint8Array([10]));
+  const turnOnBold = async () => write(new Uint8Array([27, 69, 1]));
+  const turnOffBold = async () => write(new Uint8Array([27, 69, 0]));
+  const feedLeft = async () => write(new Uint8Array([27, 97, 0]));
+  const feedCenter = async () => write(new Uint8Array([27, 97, 1]));
+  const feedRight = async () => write(new Uint8Array([27, 97, 2]));
+  const underline = async () => {
+    await lineFeed();
+    await write('-'.repeat(30));
+  };
+  const newEmptyLine = async () => {
+    await lineFeed();
+    await write(' '.repeat(18) + '\n');
+  };
+  const writeData = async (text: string) => {
+    await lineFeed();
+    await write(text);
+  };
 
-    const writableServiceUuid = writableCharacteristic.service;
-    const writableCharUuid = writableCharacteristic.uuid;
+  const disconnect = async () => {
+    await BleClient.disconnect(deviceId);
+    alert('Disconnected');
+  };
 
-    const html = `<b>Hello Printer</b><br>Printed from Ionic React app!`;
-    const plainText = html
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/?[^>]+(>|$)/g, '') + '\n\n\n';
-
-    const encoded = new TextEncoder().encode(plainText);
-    const base64 = btoa(String.fromCharCode(...encoded));
-
+  const handlePrint = async () => {
+    setLoading(true);
     try {
-      // Write data to the printer
-      await BluetoothLe.write({
-        deviceId: selectedDeviceId,
-        service: writableServiceUuid,
-        characteristic: writableCharUuid,
-        value: base64,
-      });
-      alert('Printed successfully!');
-    } catch (error: any) {
-      alert('Print failed: ' + (error.message || 'Unknown error'));
+      await turnOnBold();
+      await feedCenter();
+      await writeData('Kingsconcept POS');
+      await underline();
+      await turnOffBold();
+
+      await feedRight();
+      await writeData(`Date: ${new Date().toLocaleString()}`);
+
+      await feedLeft();
+      await writeData(`Customer: John Doe`);
+      await writeData(`Item: iPhone 13`);
+      await writeData(`Qty: 1    Price: ₦500,000`);
+
+      await newEmptyLine();
+      await feedCenter();
+      await writeData('Please collect after one hour.');
+      await writeData('--- Thank you ---');
+      await feedLeft();
+
+      await newEmptyLine();
+      await disconnect();
+    } catch (err) {
+      alert('Print failed: ' + err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -139,28 +126,18 @@ const Home: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent className="ion-padding">
-        <IonButton expand="block" onClick={scanForPrinters}>
-          Scan for Bluetooth Printers
-        </IonButton>
-
-        <IonList>
-          {devices.map((device, idx) => (
-            <IonItem
-              key={idx}
-              button
-              onClick={() => connectAndDiscover(device.deviceId)}
-            >
-              <IonLabel>
-                {device.name || 'Unnamed Device'}<br />
-                <small>{device.deviceId}</small>
-              </IonLabel>
-            </IonItem>
-          ))}
-        </IonList>
-
-        <IonButton expand="block" onClick={printData}>
-          Print
-        </IonButton>
+        <IonButton expand="block" onClick={scanAndConnect}>Scan & Connect</IonButton>
+        {deviceId && (
+          <IonText>
+            <p>Connected to: <strong>{deviceId}</strong></p>
+          </IonText>
+        )}
+        {deviceId && serviceUuid && characteristicUuid && (
+          <IonButton expand="block" color="success" onClick={handlePrint}>
+            Print Receipt
+          </IonButton>
+        )}
+        <IonLoading isOpen={loading} message={'Please wait...'} />
       </IonContent>
     </IonPage>
   );
