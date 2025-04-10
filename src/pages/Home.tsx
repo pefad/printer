@@ -12,7 +12,6 @@ import {
 } from '@ionic/react';
 
 import { BluetoothLe } from '@capacitor-community/bluetooth-le';
-import type { PluginListenerHandle } from '@capacitor/core';
 
 type CustomDevice = {
   deviceId: string;
@@ -23,6 +22,7 @@ const Home: React.FC = () => {
   const [devices, setDevices] = useState<CustomDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [characteristics, setCharacteristics] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
 
   // Initialize Bluetooth LE
   const initializeBluetooth = async () => {
@@ -69,29 +69,29 @@ const Home: React.FC = () => {
     }, 10000);
   };
 
-  // Function to connect to the selected device and read characteristics
+  // Function to connect to the selected device and discover services and characteristics
   const connectAndDiscover = async (deviceId: string) => {
     setSelectedDeviceId(deviceId);
-
     try {
       await BluetoothLe.connect({ deviceId });
       alert('Connected to device: ' + deviceId);
 
-      // Example service and characteristic UUIDs for reading data
-      const serviceUuid = '000018f0-0000-1000-8000-00805f9b34fb'; // Replace with correct UUID
-      const characteristicUuid = '00002a00-0000-1000-8000-00805f9b34fb'; // Replace with correct UUID
-
-      // Read the characteristic value
-      const readResult = await BluetoothLe.read({
+      // Discover the services and characteristics of the device
+      const discoveredServices = await BluetoothLe.discover({
         deviceId,
-        service: serviceUuid,
-        characteristic: characteristicUuid,
       });
 
-      alert('Read result: ' + JSON.stringify(readResult));
-      setCharacteristics([readResult]); // Set read characteristics
+      alert('Discovered services: ' + JSON.stringify(discoveredServices));
+
+      // Store the discovered services and characteristics
+      setServices(discoveredServices.services);
+
+      // Extract characteristics from the discovered services
+      const allCharacteristics = discoveredServices.services.flatMap((service: any) => service.characteristics);
+      setCharacteristics(allCharacteristics);
+
     } catch (error: any) {
-      alert('Failed to connect or read characteristic: ' + error.message);
+      alert('Failed to connect or discover services: ' + error.message);
     }
   };
 
@@ -102,8 +102,15 @@ const Home: React.FC = () => {
       return;
     }
 
-    const writableServiceUuid = '49535343-fe7d-4ae5-8fa9-9fafd205e455'; // Replace with correct writable service
-    const writableCharUuid = '49535343-8841-43f4-a8d4-ecbe34729bb3'; // Replace with correct writable characteristic
+    // Assuming the writable service and characteristic UUIDs are part of the discovered characteristics
+    const writableCharacteristic = characteristics.find((char) => char.properties.write);
+    if (!writableCharacteristic) {
+      alert('No writable characteristic found.');
+      return;
+    }
+
+    const writableServiceUuid = writableCharacteristic.service;
+    const writableCharUuid = writableCharacteristic.uuid;
 
     const html = `<b>Hello Printer</b><br>Printed from Ionic React app!`;
     const plainText = html
