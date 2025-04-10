@@ -72,7 +72,7 @@ const Home: React.FC = () => {
 
     try {
       // Connect to the selected Bluetooth device
-      await BluetoothLe.connect({ deviceId,autoConnect: true,});
+      await BluetoothLe.connect({ deviceId});
 
       // Read a characteristic value (e.g., device information or status)
       // Example: You would replace 'serviceUuid' and 'characteristicUuid' with actual values for your printer.
