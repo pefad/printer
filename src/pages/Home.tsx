@@ -11,10 +11,7 @@ import {
   IonLabel,
 } from '@ionic/react';
 
-import {
-  BluetoothLe,
-} from '@capacitor-community/bluetooth-le';
-
+import { BluetoothLe } from '@capacitor-community/bluetooth-le';
 import type { PluginListenerHandle } from '@capacitor/core';
 
 type CustomDevice = {
@@ -25,7 +22,8 @@ type CustomDevice = {
 const Home: React.FC = () => {
   const [devices, setDevices] = useState<CustomDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [scanListener, setScanListener] = useState<PluginListenerHandle | null>(null);
+  const [services, setServices] = useState<any[]>([]); // Store discovered services
+  const [characteristics, setCharacteristics] = useState<any[]>([]); // Store discovered characteristics
 
   // Function to scan for nearby Bluetooth printers
   const scanForPrinters = async () => {
@@ -53,8 +51,6 @@ const Home: React.FC = () => {
       }
     );
 
-    setScanListener(listener);
-
     // Start scanning for Bluetooth devices
     await BluetoothLe.requestLEScan({ allowDuplicates: false });
 
@@ -62,57 +58,72 @@ const Home: React.FC = () => {
     setTimeout(async () => {
       await BluetoothLe.stopLEScan();
       await listener.remove();
-      setScanListener(null);
     }, 10000);
   };
 
-  // Function to connect to a selected device and print data
-  const connectAndPrint = async (deviceId: string) => {
+  // Function to connect to the selected device and discover its services and characteristics
+  const connectAndDiscover = async (deviceId: string) => {
     setSelectedDeviceId(deviceId);
 
     try {
       // Connect to the selected Bluetooth device
-      await BluetoothLe.connect({ deviceId});
+      await BluetoothLe.connect({ deviceId });
 
-      // Read a characteristic value (e.g., device information or status)
-      // Example: You would replace 'serviceUuid' and 'characteristicUuid' with actual values for your printer.
-      const readResult = await BluetoothLe.read({
+      // Discover services
+      const discoveredServices = await BluetoothLe.discover({ deviceId });
+      setServices(discoveredServices);
+
+      // Discover characteristics for the first service (you may want to choose the right one)
+      const serviceUuid = discoveredServices[0]?.uuid; // Use the first service for demonstration
+      const discoveredCharacteristics = await BluetoothLe.discoverCharacteristics({
         deviceId,
-        service: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-        characteristic: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f',
+        service: serviceUuid,
       });
+      setCharacteristics(discoveredCharacteristics);
 
-      console.log('Read result:', readResult);
+      console.log('Discovered Services:', discoveredServices);
+      console.log('Discovered Characteristics:', discoveredCharacteristics);
+    } catch (error: any) {
+      console.error('Connection or discovery failed:', error);
+      alert('Failed to connect or discover services: ' + error.message);
+    }
+  };
 
-      // Now, write data to the device (print data)
-      const writableServiceUuid = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'; // Replace with your service UUID
-      const writableCharUuid = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'; // Replace with your characteristic UUID
+  // Function to print after discovering characteristics
+  const printData = async () => {
+    if (!selectedDeviceId || characteristics.length === 0) {
+      alert('Please connect to a device and discover characteristics first.');
+      return;
+    }
 
-      // HTML content to print
-      const html = `<b>Hello Printer</b><br>Printed from Ionic React app!`;
-      const plainText = html
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/?[^>]+(>|$)/g, '') + '\n\n\n';
+    const writableServiceUuid = services[0]?.uuid; // Replace with actual writable service
+    const writableCharUuid = characteristics[0]?.uuid; // Replace with actual writable characteristic
 
-      const encoded = new TextEncoder().encode(plainText);
-      const base64 = btoa(String.fromCharCode(...encoded));
+    if (!writableServiceUuid || !writableCharUuid) {
+      alert('Unable to find writable service or characteristic.');
+      return;
+    }
 
-      // Write the data to the printer
+    const html = `<b>Hello Printer</b><br>Printed from Ionic React app!`;
+    const plainText = html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/?[^>]+(>|$)/g, '') + '\n\n\n';
+
+    const encoded = new TextEncoder().encode(plainText);
+    const base64 = btoa(String.fromCharCode(...encoded));
+
+    try {
+      // Write data to the printer
       await BluetoothLe.write({
-        deviceId,
+        deviceId: selectedDeviceId,
         service: writableServiceUuid,
         characteristic: writableCharUuid,
         value: base64,
       });
-
       alert('Printed successfully!');
     } catch (error: any) {
-      console.error(error);
+      console.error('Print failed:', error);
       alert('Print failed: ' + (error.message || 'Unknown error'));
-    } finally {
-      try {
-        await BluetoothLe.disconnect({ deviceId });
-      } catch {}
     }
   };
 
@@ -133,7 +144,7 @@ const Home: React.FC = () => {
             <IonItem
               key={idx}
               button
-              onClick={() => connectAndPrint(device.deviceId)}
+              onClick={() => connectAndDiscover(device.deviceId)}
             >
               <IonLabel>
                 {device.name || 'Unnamed Device'}<br />
@@ -142,9 +153,14 @@ const Home: React.FC = () => {
             </IonItem>
           ))}
         </IonList>
+
+        <IonButton expand="block" onClick={printData}>
+          Print
+        </IonButton>
       </IonContent>
     </IonPage>
   );
 };
 
 export default Home;
+    
